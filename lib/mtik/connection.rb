@@ -130,6 +130,32 @@ class MTik::Connection
     end
   end
 
+  ## Connect and login to the device using the API
+  def login2
+    connect
+    unless connected?
+      raise MTik::Error.new("Login failed: Unable to connect to device.")
+    end
+
+    ## Send /login command with login and password:
+    reply = get_reply('/login', '=name=' + @user, '=password=' + @pass)
+    if reply[0].key?('!trap')
+      raise MTik::Error.new("Login failed: " + (reply[0].key?('message') ? reply[0]['message'] : 'Unknown error.'))
+    end
+    unless reply.length == 1 && reply[0].length == 2 && reply[0].key?('!done')
+      @sock.close
+      @sock = nil
+      raise MTik::Error.new('Login failed: Unknown response to login.')
+    end
+
+    ## Request the RouterOS version of the device as different versions
+    ## sometimes use slightly different command parameters:
+    reply = get_reply('/system/resource/getall')
+    if reply.first.key?('!re') && reply.first['version']
+      @os_version = reply.first['version']
+    end
+  end
+
   ## Connect to the device
   def connect
     return unless @sock.nil?
